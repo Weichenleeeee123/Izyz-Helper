@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.3
+// @version      0.0.4
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -39,8 +39,8 @@
         input.type = 'file';
         input.accept = '.xlsx,.xls'; // 限制为 Excel 文件
         input.style.position = 'fixed';
-        input.style.top = '10px';
-        input.style.right = '10px';
+        input.style.bottom = '10px';
+        input.style.left = '10px';
         input.style.zIndex = 9999;
         input.style.padding = '5px';
         input.style.borderRadius = '5px';
