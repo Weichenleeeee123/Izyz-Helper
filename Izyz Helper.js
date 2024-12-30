@@ -1,6 +1,7 @@
 // ==UserScript==
-// @name         Izyz Helper
-// @version      0.0.2
+// @name         Izyz-Helper
+// @namespace    https://greasyfork.org/users/1417526
+// @version      0.0.3
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -11,14 +12,85 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getResourceText
+// @require      https://unpkg.com/xlsx/dist/xlsx.full.min.js
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // 假设这是从Excel表格中读取的名字数组
-    var names = ["李伟宸", "谢宇轩","雷军","秦海烨"]; // 用实际的名字替换
+    var names = []; // 用实际的名字替换
     var nextButtonEnabled = false; // 是否已点击“添加补录”
+
+    // 检测XLSX库是否加载成功
+    setTimeout(function() {
+        if (typeof XLSX === "undefined") {
+            console.error("XLSX 库加载失败！");
+            alert("无法加载 XLSX 库，功能无法使用！");
+            return; // 如果加载失败，直接停止脚本
+        } else {
+            console.log("XLSX 库加载成功！");
+        }
+    }, 1000); // 延迟1秒检查是否加载成功
+
+    // 添加文件上传按钮
+    function createFileInput() {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx,.xls'; // 限制为 Excel 文件
+        input.style.position = 'fixed';
+        input.style.top = '10px';
+        input.style.right = '10px';
+        input.style.zIndex = 9999;
+        input.style.padding = '5px';
+        input.style.borderRadius = '5px';
+        input.style.backgroundColor = '#4CAF50';
+        input.style.color = 'white';
+        input.style.border = 'none';
+        input.style.cursor = 'pointer';
+        input.addEventListener('change', handleFileSelect);
+        document.body.appendChild(input);
+    }
+    
+// 处理文件选择
+function handleFileSelect(event) {
+    var file = event.target.files[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var data = e.target.result;
+            var workbook = XLSX.read(data, { type: 'binary' });
+            var sheet = workbook.Sheets[workbook.SheetNames[0]]; // 默认取第一个工作表
+
+            // 将工作表转换为二维数组，raw: true 确保读取原始数据而不进行格式化
+            var json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+
+            // 打印原始数据以查看第一行
+            console.log('读取到的数据：', json);
+
+            // 获取表头
+            var header = json[0];
+            console.log('表头:', header);
+
+            // 查找"姓名"列的索引，去除每个列名的前后空格
+            var nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
+
+            if (nameColumnIndex === -1) {
+                alert('未找到“姓名”列，请确保Excel中有“姓名”列');
+                console.error('未找到姓名列');
+                return;
+            }
+
+            // 提取姓名列数据
+            names = json.slice(1).map(row => row[nameColumnIndex]).filter(name => name);
+            console.log('已加载姓名：', names);
+            alert('Excel 文件已成功加载，姓名已提取！');
+        };
+        reader.readAsBinaryString(file);
+    } else {
+        alert('请上传有效的 Excel 文件');
+    }
+}
 
     // 定义一个函数来模拟点击按钮事件
     async function clickButton(selector, delay) {
@@ -96,7 +168,7 @@
             await checkCheckbox(500); // 勾选单选框
             // 等待“添加补录”按钮被点击后，再点击“下一步”按钮
             while (!nextButtonEnabled) {
-                await new Promise(resolve => setTimeout(resolve, 500)); // 每0.5秒检查一次
+                await new Promise(resolve => setTimeout(resolve, 100)); // 每0.1秒检查一次
             }
             await clickButton('.el-button.el-button--primary[style*="display: block; margin: 0px auto;"]', 500); // 点击“下一步”按钮
             console.log('"下一步"已被点击')
@@ -104,8 +176,15 @@
         };
     }
 
+    // 创建上传文件按钮
+    createFileInput();
+
     // 定义菜单命令：开始
     let menu1 = GM_registerMenuCommand('开始', function () {
+        if (names.length === 0) {
+            alert('请先上传并加载 Excel 文件！');
+            return;
+        }
         processNames(names);
     }, 'o');
 
