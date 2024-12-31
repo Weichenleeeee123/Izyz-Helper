@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.5
+// @version      0.0.6
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -112,8 +112,62 @@
         reader.readAsBinaryString(file);
     } else {
         alert('请上传有效的 Excel 文件');
+        }
     }
-}
+
+    // 创建并显示进度条
+    function createProgressBar() {
+        var progressContainer = document.createElement('div');
+        progressContainer.style.position = 'fixed';
+        progressContainer.style.bottom = '90px';
+        progressContainer.style.left = '10px';
+        progressContainer.style.zIndex = 9999;
+        progressContainer.style.width = '300px';
+        progressContainer.style.height = '30px';
+        progressContainer.style.backgroundColor = '#e0e0e0';
+        progressContainer.style.borderRadius = '5px';
+            
+        var progressBar = document.createElement('div');
+        progressBar.style.height = '100%';
+        progressBar.style.width = '0%';
+        progressBar.style.backgroundColor = '#4CAF50';
+        progressBar.style.borderRadius = '5px';
+        progressContainer.appendChild(progressBar);
+    
+        var progressText = document.createElement('span');
+        progressText.style.position = 'absolute';
+        progressText.style.top = '50%';
+        progressText.style.left = '50%';
+        progressText.style.transform = 'translate(-50%, -50%)';
+        progressText.style.color = 'white';
+        progressText.style.fontSize = '14px';
+        progressContainer.appendChild(progressText);
+    
+        var currentVolunteerText = document.createElement('span');
+        currentVolunteerText.style.position = 'fixed';
+        currentVolunteerText.style.bottom = '130px';
+        currentVolunteerText.style.left = '10px';
+        currentVolunteerText.style.zIndex = 9999;
+        currentVolunteerText.style.fontSize = '14px';
+        currentVolunteerText.style.color = '#4CAF50';
+        currentVolunteerText.style.fontWeight = 'bold';
+        currentVolunteerText.textContent = '当前录入：第 0 个志愿者';
+        document.body.appendChild(currentVolunteerText);
+    
+        document.body.appendChild(progressContainer); // 确保进度条在页面中显示
+    
+        return { progressBar, progressText, currentVolunteerText };
+    
+    }
+
+    // 更新进度条
+    function updateProgressBar(progressBar, progressText, current, total, currentVolunteerText) {
+        var percentage = Math.round((current / total) * 100);
+        progressBar.style.width = percentage + '%';
+        progressText.textContent = `进度：${percentage}%`;
+        currentVolunteerText.textContent = `当前录入：第 ${current} 个志愿者`;
+    }
+
 
     // 定义一个函数来模拟点击按钮事件
     async function clickButton(selector, delay) {
@@ -196,6 +250,7 @@
 
     // 主处理函数
     async function processNames(names){
+        const { progressBar, progressText, currentVolunteerText } = createProgressBar(); // 创建进度条
         for (let i = 0; i < names.length; i++) {
             console.log(`正在处理志愿者：${names[i]}`);
     
@@ -208,6 +263,9 @@
                 console.log(`跳过志愿者：${names[i]}`);
                 continue; // 跳过当前志愿者，进入下一个
             }
+
+            // 更新进度条
+            updateProgressBar(progressBar, progressText, i + 1, names.length, currentVolunteerText);
     
             // 等待用户完成“添加补录”操作
             await clickButton('.el-button.el-button--primary[style*="display: block; margin: 0px auto;"]', 500); // 点击“下一步”按钮
