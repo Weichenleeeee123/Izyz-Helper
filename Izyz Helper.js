@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.4
+// @version      0.0.5
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -21,6 +21,7 @@
 
     var names = []; // 用实际的名字替换
     var nextButtonEnabled = false; // 是否已点击“添加补录”
+    var skipButtonEnabled = false; // 是否点击了跳过按钮
 
     // 检测XLSX库是否加载成功
     setTimeout(function() {
@@ -52,8 +53,30 @@
         document.body.appendChild(input);
     }
     
-// 处理文件选择
-function handleFileSelect(event) {
+    // 添加跳过按钮
+    function createSkipButton() {
+        var skipButton = document.createElement('button');
+        skipButton.textContent = '跳过当前志愿者';
+        skipButton.style.position = 'fixed';
+        skipButton.style.bottom = '50px'; // 放在“上传文件”按钮的上方
+        skipButton.style.left = '10px';
+        skipButton.style.zIndex = 9999;
+        skipButton.style.padding = '10px';
+        skipButton.style.borderRadius = '5px';
+        skipButton.style.backgroundColor = '#f44336'; // 红色按钮
+        skipButton.style.color = 'white';
+        skipButton.style.border = 'none';
+        skipButton.style.cursor = 'pointer';
+        skipButton.style.fontSize = '14px';
+        skipButton.addEventListener('click', function() {
+            skipButtonEnabled = true; // 设置跳过标志
+            console.log('用户点击了跳过按钮');
+        });
+        document.body.appendChild(skipButton);
+    }
+
+    // 处理文件选择
+    function handleFileSelect(event) {
     var file = event.target.files[0];
     if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
         var reader = new FileReader();
@@ -120,64 +143,82 @@ function handleFileSelect(event) {
         }
     }
 
+    // 等待用户点击“添加补录”按钮
+    async function waitForUserAction() {
+        // 事件代理：在父元素上监听点击事件
+        document.body.addEventListener('click', function onClick(event) {
+            if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent === '添加补录') {
+                console.log('用户点击了“添加补录”按钮');
+                nextButtonEnabled = true;
+                document.body.removeEventListener('click', onClick); // 移除事件监听器
+            }
+        });
+
+        while (!nextButtonEnabled) {
+            await new Promise(resolve => setTimeout(resolve, 100)); // 每0.1秒检查一次
+        }
+    }
+
     // 定义一个函数来勾选单选框并点击“添加补录”
     async function checkCheckbox(delay) {
         await new Promise(resolve => setTimeout(resolve, delay));
         var checkboxes = document.querySelectorAll('.el-checkbox__inner');
         if (checkboxes.length > 4) {
-            // 重名的情况，需要手动勾选
-            console.log('超过4个单选框被找到，等待“添加补录”按钮被点击');
+            console.log('超过4个单选框被找到，等待用户操作');
             alert('出现重名，请手动勾选志愿者，并点击“添加补录”');
-            // 事件代理：在父元素上监听点击事件
-            document.body.addEventListener('click', function onClick(event) {
-                if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent === '添加补录') {
-                    console.log('用户点击了“添加补录”按钮，继续执行');
-                    nextButtonEnabled = true; // 设置标志，允许继续执行后续操作
-                    document.body.removeEventListener('click', onClick); // 移除事件监听器，避免重复监听
-                }
-            });
+    
+            await waitForUserAction(); // 等待用户点击“添加补录”
         }
         else if(checkboxes.length < 4){
             // 查无此人的情况，需要手动勾选
-            console.log('查无此人，等待“添加补录”按钮被点击');
-            alert('查无此人，请手动勾选志愿者，并点击“添加补录”');
-            // 事件代理：在父元素上监听点击事件
-            document.body.addEventListener('click', function onClick(event) {
-                if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent === '添加补录') {
-                    console.log('用户点击了“添加补录”按钮，继续执行');
-                    nextButtonEnabled = true; // 设置标志，允许继续执行后续操作
-                    document.body.removeEventListener('click', onClick); // 移除事件监听器，避免重复监听
-                }
-            });
+            console.log('查无此人，提供跳过或手动选择的选项');
+            alert('查无此人，请手动勾选志愿者并点击“添加补录”，或点击“跳过”按钮');
+    
+            while (!skipButtonEnabled && !nextButtonEnabled) {
+                await new Promise(resolve => setTimeout(resolve, 100)); // 每0.1秒检查一次
+            }
+    
+            if (skipButtonEnabled) {
+                skipButtonEnabled = false; // 重置跳过标志
+                return 'SKIP'; // 返回跳过信号
+            }
+    
+            // 如果用户手动点击“添加补录”，继续执行
+            await waitForUserAction();
         }else{
             // 正常情况
             checkboxes.forEach((checkbox) => checkbox.click());
             console.log('单选框已勾选');
-            await clickButton('.el-button.el-button--primary[style*="margin-bottom: 20px;"]', 500); // 再次点击“添加补录”按钮
-            console.log('“添加补录”按钮已被点击，等待“下一步”按钮');
-            nextButtonEnabled = true;// “添加补录”按钮已被点击，允许点击“下一步”
+            await clickButton('.el-button.el-button--primary[style*="margin-bottom: 20px;"]', 500); // 点击“添加补录”按钮
+            nextButtonEnabled = true; // 标志已完成“添加补录”
         }
     }
 
-    // 定义一个函数来进行录入志愿者
+    // 主处理函数
     async function processNames(names){
-        for (const name of names) {
-            await clickButton('.el-button.el-button--primary', 1000); // 点击“添加补录”按钮
-            await inputName(name, 1000); // 输入姓名，传递当前名字
-            await clickButton('.queryOrgBtn', 500); // 点击“仅在本组织内查询”按钮
-            await checkCheckbox(500); // 勾选单选框
-            // 等待“添加补录”按钮被点击后，再点击“下一步”按钮
-            while (!nextButtonEnabled) {
-                await new Promise(resolve => setTimeout(resolve, 100)); // 每0.1秒检查一次
+        for (let i = 0; i < names.length; i++) {
+            console.log(`正在处理志愿者：${names[i]}`);
+    
+            await clickButton('.el-button.el-button--primary', 1000); // 打开输入页面
+            await inputName(names[i], 1000); // 输入志愿者姓名
+            await clickButton('.queryOrgBtn', 500); // 点击查询按钮
+    
+            const result = await checkCheckbox(500);
+            if (result === 'SKIP') {
+                console.log(`跳过志愿者：${names[i]}`);
+                continue; // 跳过当前志愿者，进入下一个
             }
+    
+            // 等待用户完成“添加补录”操作
             await clickButton('.el-button.el-button--primary[style*="display: block; margin: 0px auto;"]', 500); // 点击“下一步”按钮
-            console.log('"下一步"已被点击')
+            console.log('“下一步”已被点击');
             nextButtonEnabled = false; // 重置标志
         };
     }
 
-    // 创建上传文件按钮
+    // 创建按钮
     createFileInput();
+    createSkipButton();
 
     // 定义菜单命令：开始
     let menu1 = GM_registerMenuCommand('开始', function () {
