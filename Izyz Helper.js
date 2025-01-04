@@ -22,6 +22,7 @@
     var names = []; // 用实际的名字替换
     var nextButtonEnabled = false; // 是否已点击“添加补录”
     var skipButtonEnabled = false; // 是否点击了跳过按钮
+    var volunteersSkipped = [];
 
     // 检测XLSX库是否加载成功
     setTimeout(function() {
@@ -204,7 +205,7 @@
             // 监听跳过按钮
             const skipListener = (event) => {
                 if (skipButtonEnabled) {
-                    console.log('用户点击了跳过按钮');
+                    console.log('用户点击了跳过按钮2');
                     resolve('SKIP'); // 返回跳过信号
                     document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
                 }
@@ -268,6 +269,9 @@
             const result = await checkCheckbox(500);
             if (result === 'SKIP') {
                 console.log(`跳过志愿者：${names[i]}`);
+                // 记录当前志愿者的名字
+                volunteersSkipped.push(names[i]);
+                console.log(`记录志愿者：${names[i]}`);
                 continue; // 跳过当前志愿者，进入下一个
             }else if (result === 'CONTINUE') {
                 console.log(`继续处理志愿者：${names[i]}`);
@@ -280,6 +284,10 @@
             console.log('“下一步”已被点击');
             nextButtonEnabled = false; // 重置标志
         };
+        // 在最后显示被跳过的志愿者名字
+        if (volunteersSkipped.length > 0) {
+            alert(`录用完成，被跳过的的志愿者：${volunteersSkipped.join(', ')}`);
+        }
     }
 
     // 创建按钮
