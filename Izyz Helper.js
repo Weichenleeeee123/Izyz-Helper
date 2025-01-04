@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.6
+// @version      0.0.7
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -70,7 +70,8 @@
         skipButton.style.fontSize = '14px';
         skipButton.addEventListener('click', function() {
             skipButtonEnabled = true; // 设置跳过标志
-            console.log('用户点击了跳过按钮');
+            console.log('用户点击了跳过按钮1');
+            console.log('skipButtonEnabled is ',skipButtonEnabled);
         });
         document.body.appendChild(skipButton);
     }
@@ -197,20 +198,32 @@
         }
     }
 
-    // 等待用户点击“添加补录”按钮
+    // 等待用户点击“添加补录”或“跳过”按钮
     async function waitForUserAction() {
-        // 事件代理：在父元素上监听点击事件
-        document.body.addEventListener('click', function onClick(event) {
-            if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent === '添加补录') {
-                console.log('用户点击了“添加补录”按钮');
-                nextButtonEnabled = true;
-                document.body.removeEventListener('click', onClick); // 移除事件监听器
-            }
-        });
+        return new Promise(resolve => {
+            // 监听跳过按钮
+            const skipListener = (event) => {
+                if (skipButtonEnabled) {
+                    console.log('用户点击了跳过按钮');
+                    resolve('SKIP'); // 返回跳过信号
+                    document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
+                }
+            };
 
-        while (!nextButtonEnabled) {
-            await new Promise(resolve => setTimeout(resolve, 100)); // 每0.1秒检查一次
-        }
+            // 监听“添加补录”按钮
+            const nextListener = (event) => {
+                if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent.trim() === '添加补录') {
+                    nextButtonEnabled = true;
+                    console.log('用户点击了“添加补录”按钮');
+                    resolve('CONTINUE'); // 返回继续信号
+                    document.body.removeEventListener('click', nextListener); // 移除添加补录按钮监听
+                }
+            };
+
+            // 为跳过按钮和“添加补录”按钮分别添加监听
+            document.body.addEventListener('click', skipListener);
+            document.body.addEventListener('click', nextListener);
+        });
     }
 
     // 定义一个函数来勾选单选框并点击“添加补录”
@@ -220,25 +233,19 @@
         if (checkboxes.length > 4) {
             console.log('超过4个单选框被找到，等待用户操作');
             alert('出现重名，请手动勾选志愿者，并点击“添加补录”');
-    
             await waitForUserAction(); // 等待用户点击“添加补录”
         }
         else if(checkboxes.length < 4){
             // 查无此人的情况，需要手动勾选
             console.log('查无此人，提供跳过或手动选择的选项');
             alert('查无此人，请手动勾选志愿者并点击“添加补录”，或点击“跳过”按钮');
-    
-            while (!skipButtonEnabled && !nextButtonEnabled) {
-                await new Promise(resolve => setTimeout(resolve, 100)); // 每0.1秒检查一次
+            const result = await waitForUserAction(); // 等待用户点击“添加补录”或“跳过”
+            console.log(result);
+            if (result === 'SKIP') {
+                return 'SKIP'; // 跳过当前志愿者
+            }else if (result === 'CONTINUE') {
+                return 'CONTINUE';
             }
-    
-            if (skipButtonEnabled) {
-                skipButtonEnabled = false; // 重置跳过标志
-                return 'SKIP'; // 返回跳过信号
-            }
-    
-            // 如果用户手动点击“添加补录”，继续执行
-            await waitForUserAction();
         }else{
             // 正常情况
             checkboxes.forEach((checkbox) => checkbox.click());
@@ -262,8 +269,9 @@
             if (result === 'SKIP') {
                 console.log(`跳过志愿者：${names[i]}`);
                 continue; // 跳过当前志愿者，进入下一个
+            }else if (result === 'CONTINUE') {
+                console.log(`继续处理志愿者：${names[i]}`);
             }
-
             // 更新进度条
             updateProgressBar(progressBar, progressText, i + 1, names.length, currentVolunteerText);
     
