@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.7
+// @version      0.0.8
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -199,18 +199,18 @@
         }
     }
 
-    // 等待用户点击“添加补录”或“跳过”按钮
     async function waitForUserAction() {
         return new Promise(resolve => {
             // 监听跳过按钮
             const skipListener = (event) => {
-                if (skipButtonEnabled) {
-                    console.log('用户点击了跳过按钮2');
+                if (skipButtonEnabled && event.target && event.target.matches('#skipButton')) {
+                    console.log('用户点击了跳过按钮');
                     resolve('SKIP'); // 返回跳过信号
                     document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
+                    document.body.removeEventListener('click', nextListener); // 移除添加补录按钮监听
                 }
             };
-
+    
             // 监听“添加补录”按钮
             const nextListener = (event) => {
                 if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent.trim() === '添加补录') {
@@ -218,9 +218,10 @@
                     console.log('用户点击了“添加补录”按钮');
                     resolve('CONTINUE'); // 返回继续信号
                     document.body.removeEventListener('click', nextListener); // 移除添加补录按钮监听
+                    document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
                 }
             };
-
+    
             // 为跳过按钮和“添加补录”按钮分别添加监听
             document.body.addEventListener('click', skipListener);
             document.body.addEventListener('click', nextListener);
