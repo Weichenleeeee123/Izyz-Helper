@@ -217,8 +217,8 @@
         return new Promise(resolve => {
             // 监听跳过按钮
             const skipListener = (event) => {
-                if (skipButtonEnabled && event.target && event.target.matches('#skipButton')) {
-                    console.log('用户点击了跳过按钮');
+                if (skipButtonEnabled && event.target) {
+                    console.log('用户点击了跳过按钮2');
                     resolve('SKIP'); // 返回跳过信号
                     document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
                     document.body.removeEventListener('click', nextListener); // 移除添加补录按钮监听
