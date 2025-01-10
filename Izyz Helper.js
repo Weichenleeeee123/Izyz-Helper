@@ -215,30 +215,46 @@
 
     async function waitForUserAction() {
         return new Promise(resolve => {
-            // 监听跳过按钮
-            const skipListener = (event) => {
-                if (skipButtonEnabled && event.target) {
-                    console.log('用户点击了跳过按钮2');
-                    resolve('SKIP'); // 返回跳过信号
-                    document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
-                    document.body.removeEventListener('click', nextListener); // 移除添加补录按钮监听
+            let resolved = false;
+            const handleClick = (event) => {
+                if (resolved) return;
+                
+                // 处理跳过按钮点击
+                const skipButton = event.target.closest('button');
+                if (skipButton && skipButton.textContent.trim() === '跳过当前志愿者') {
+                    console.log('用户点击了跳过按钮');
+                    resolved = true;
+                    resolve('SKIP');
+                    return;
                 }
-            };
-    
-            // 监听“添加补录”按钮
-            const nextListener = (event) => {
-                if (event.target && event.target.matches('button.el-button.el-button--primary span') && event.target.textContent.trim() === '添加补录') {
-                    nextButtonEnabled = true;
+
+                // 处理添加补录按钮点击
+                const nextButton = event.target.closest('button.el-button.el-button--primary');
+                if (nextButton && nextButton.querySelector('span')?.textContent.trim() === '添加补录') {
                     console.log('用户点击了“添加补录”按钮');
-                    resolve('CONTINUE'); // 返回继续信号
-                    document.body.removeEventListener('click', nextListener); // 移除添加补录按钮监听
-                    document.body.removeEventListener('click', skipListener); // 移除跳过按钮监听
+                    resolved = true;
+                    resolve('CONTINUE');
+                    return;
                 }
             };
-    
-            // 为跳过按钮和“添加补录”按钮分别添加监听
-            document.body.addEventListener('click', skipListener);
-            document.body.addEventListener('click', nextListener);
+
+            // 使用捕获阶段监听，确保能捕获到动态创建的按钮
+            document.addEventListener('click', handleClick, { capture: true });
+
+            // 添加超时检查
+            const timeout = setTimeout(() => {
+                if (!resolved) {
+                    console.log('等待用户操作超时');
+                    resolved = true;
+                    resolve('TIMEOUT');
+                }
+            }, 30000); // 30秒超时
+
+            // 清理函数
+            return () => {
+                document.removeEventListener('click', handleClick, { capture: true });
+                clearTimeout(timeout);
+            };
         });
     }
 
