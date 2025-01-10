@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.8
+// @version      0.0.9
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -79,43 +79,57 @@
 
     // 处理文件选择
     function handleFileSelect(event) {
-    var file = event.target.files[0];
-    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            var data = e.target.result;
-            var workbook = XLSX.read(data, { type: 'binary' });
-            var sheet = workbook.Sheets[workbook.SheetNames[0]]; // 默认取第一个工作表
+        var file = event.target.files[0];
+        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var data = e.target.result;
+                var workbook = XLSX.read(data, { type: 'binary' });
+                var sheet = workbook.Sheets[workbook.SheetNames[0]]; // 默认取第一个工作表
 
-            // 将工作表转换为二维数组，raw: true 确保读取原始数据而不进行格式化
-            var json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+                // 将工作表转换为二维数组，raw: true 确保读取原始数据而不进行格式化
+                var json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
 
-            // 打印原始数据以查看第一行
-            console.log('读取到的数据：', json);
+                // 打印原始数据以查看第一行
+                console.log('读取到的数据：', json);
 
-            // 获取表头
-            var header = json[0];
-            console.log('表头:', header);
+                // 获取表头
+                var header = json[0];
+                console.log('表头:', header);
 
-            // 查找"姓名"列的索引，去除每个列名的前后空格
-            var nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
+                // 查找"姓名"列的索引，去除每个列名的前后空格
+                var nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
 
-            if (nameColumnIndex === -1) {
-                alert('未找到“姓名”列，请确保Excel中有“姓名”列');
-                console.error('未找到姓名列');
-                return;
-            }
+                if (nameColumnIndex === -1) {
+                    alert('未找到“姓名”列，请确保Excel中有“姓名”列');
+                    console.error('未找到姓名列');
+                    return;
+                }
 
-            // 提取姓名列数据
-            names = json.slice(1).map(row => row[nameColumnIndex]).filter(name => name);
-            console.log('已加载姓名：', names);
-            alert('Excel 文件已成功加载，姓名已提取！');
-        };
-        reader.readAsBinaryString(file);
-    } else {
-        alert('请上传有效的 Excel 文件');
+                // 提取姓名列数据，并移除姓名前的数字
+                names = json.slice(1).map(row => {
+                    let name = row[nameColumnIndex];
+                    if (name) {
+                        // 使用正则表达式移除姓名前的数字
+                        name = name.replace(/^\d+/, '').trim();
+                    }
+                    return name;
+                }).filter(name => name); // 过滤掉空值
+
+                console.log('已加载姓名：', names);
+                alert('Excel 文件已成功加载，姓名已提取！');
+            };
+
+            reader.onerror = function(ex) {
+                console.log(ex);
+            };
+
+            reader.readAsBinaryString(file);
+        } else {
+            alert('请上传有效的 Excel 文件');
         }
     }
+
 
     // 创建并显示进度条
     function createProgressBar() {
