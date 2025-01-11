@@ -1,7 +1,7 @@
-// ==UserScript==
+ // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.0.9
+// @version      0.1
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -29,17 +29,17 @@
         if (typeof XLSX === "undefined") {
             console.error("XLSX 库加载失败！");
             alert("无法加载 XLSX 库，功能无法使用！");
-            return; // 如果加载失败，直接停止脚本
+            return;
         } else {
             console.log("XLSX 库加载成功！");
         }
     }, 1000); // 延迟1秒检查是否加载成功
 
-    // 添加文件上传按钮
+    // 添加图片上传按钮
     function createFileInput() {
         var input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.xlsx,.xls'; // 限制为 Excel 文件
+        input.accept = 'image/*'; // 限制为图片文件
         input.style.position = 'fixed';
         input.style.bottom = '10px';
         input.style.left = '10px';
@@ -77,56 +77,116 @@
         document.body.appendChild(skipButton);
     }
 
-    // 处理文件选择
-    function handleFileSelect(event) {
-        var file = event.target.files[0];
-        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                var data = e.target.result;
-                var workbook = XLSX.read(data, { type: 'binary' });
-                var sheet = workbook.Sheets[workbook.SheetNames[0]]; // 默认取第一个工作表
+    // 百度云OCR配置
+    const BAIDU_API_KEY = '填入你的API KEY';
+    const BAIDU_SECRET_KEY = '填入你的SECRET KEY';
+    let accessToken = '';
 
-                // 将工作表转换为二维数组，raw: true 确保读取原始数据而不进行格式化
-                var json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
-
-                // 打印原始数据以查看第一行
-                console.log('读取到的数据：', json);
-
-                // 获取表头
-                var header = json[0];
-                console.log('表头:', header);
-
-                // 查找"姓名"列的索引，去除每个列名的前后空格
-                var nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
-
-                if (nameColumnIndex === -1) {
-                    alert('未找到“姓名”列，请确保Excel中有“姓名”列');
-                    console.error('未找到姓名列');
-                    return;
-                }
-
-                // 提取姓名列数据，并移除姓名前的数字
-                names = json.slice(1).map(row => {
-                    let name = row[nameColumnIndex];
-                    if (name) {
-                        // 使用正则表达式移除姓名前的数字
-                        name = name.replace(/^\d+/, '').trim();
+    // 获取百度云access_token
+    function getAccessToken() {
+        return new Promise((resolve, reject) => {
+            const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_API_KEY}&client_secret=${BAIDU_SECRET_KEY}`;
+            
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: url,
+                onload: function(response) {
+                    try {
+                        const data = JSON.parse(response.responseText);
+                        if (data.access_token) {
+                            accessToken = data.access_token;
+                            console.log('百度云access_token获取成功');
+                            resolve();
+                        } else {
+                            throw new Error('获取access_token失败');
+                        }
+                    } catch (error) {
+                        reject(error);
                     }
-                    return name;
-                }).filter(name => name); // 过滤掉空值
+                },
+                onerror: function(error) {
+                    reject(error);
+                }
+            });
+        });
+    }
 
-                console.log('已加载姓名：', names);
-                alert('Excel 文件已成功加载，姓名已提取！');
+    // 将图片文件转换为base64
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
             };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
 
-            reader.onerror = function(ex) {
-                console.log(ex);
-            };
+    // 处理图片选择
+    async function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file || !file.type.startsWith('image/')) {
+            alert('请上传有效的图片文件');
+            return;
+        }
 
-            reader.readAsBinaryString(file);
-        } else {
-            alert('请上传有效的 Excel 文件');
+        try {
+            // 获取access_token
+            await getAccessToken();
+            
+            // 将图片转换为base64
+            const imageBase64 = await fileToBase64(file);
+            
+            // 调用百度云OCR API
+            const ocrUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token=${accessToken}`;
+            
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: 'POST',
+                    url: ocrUrl,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    data: `image=${encodeURIComponent(imageBase64)}&language_type=CHN_ENG`,
+                    onload: function(response) {
+                        try {
+                            const result = JSON.parse(response.responseText);
+                            if (result.words_result) {
+                                names = result.words_result
+                                    .map(item => item.words.trim())
+                                    .filter(line => line.length > 0)
+                                    .map(name => {
+                                        // 移除姓名前的数字
+                                        name = name.replace(/^\d+/, '').trim();
+                                        // 匹配2-4个中文字符的姓名
+                                        const chineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
+                                        if (chineseNamePattern.test(name)) {
+                                            return name;
+                                        }
+                                        return null;
+                                    })
+                                    .filter(name => name !== null); // 过滤掉不符合条件的项
+
+                                console.log('从图片中识别出的姓名：', names);
+                                alert('图片已成功识别，姓名已提取！');
+                                resolve();
+                            } else {
+                                throw new Error('OCR识别失败');
+                            }
+                        } catch (error) {
+                            reject(error);
+                        }
+                    },
+                    onerror: function(error) {
+                        reject(error);
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('图片识别失败：', error);
+            alert('图片识别失败，请确保图片清晰且包含中文文本');
         }
     }
 
