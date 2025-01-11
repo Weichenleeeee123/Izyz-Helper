@@ -1,7 +1,7 @@
- // ==UserScript==
+// ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.1
+// @version      0.1.1
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -36,22 +36,116 @@
     }, 1000); // 延迟1秒检查是否加载成功
 
     // 添加图片上传按钮
-    function createFileInput() {
+    function createImageInput() {
+        var container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.bottom = '130px';
+        container.style.left = '10px';
+        container.style.zIndex = 9999;
+        
+        var label = document.createElement('span');
+        label.textContent = '上传志愿者照片';
+        label.style.color = '#4CAF50';
+        label.style.marginRight = '10px';
+        label.style.fontSize = '14px';
+        container.appendChild(label);
+
         var input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*'; // 限制为图片文件
-        input.style.position = 'fixed';
-        input.style.bottom = '10px';
-        input.style.left = '10px';
-        input.style.zIndex = 9999;
+        input.title = '上传志愿者照片（支持JPG/PNG格式）';
         input.style.padding = '5px';
         input.style.borderRadius = '5px';
         input.style.backgroundColor = '#4CAF50';
         input.style.color = 'white';
         input.style.border = 'none';
         input.style.cursor = 'pointer';
-        input.addEventListener('change', handleFileSelect);
-        document.body.appendChild(input);
+        input.addEventListener('change', handleImageSelect);
+        container.appendChild(input);
+        document.body.appendChild(container);
+    }
+
+    // 添加Excel上传按钮
+    function createExcelInput() {
+        var container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.bottom = '90px';
+        container.style.left = '10px';
+        container.style.zIndex = 9999;
+        
+        var label = document.createElement('span');
+        label.textContent = '上传志愿者名单';
+        label.style.color = '#2196F3';
+        label.style.marginRight = '10px';
+        label.style.fontSize = '14px';
+        container.appendChild(label);
+
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx,.xls'; // 限制为Excel文件
+        input.title = '上传志愿者名单（支持Excel格式）';
+        input.style.padding = '5px';
+        input.style.borderRadius = '5px';
+        input.style.backgroundColor = '#2196F3';
+        input.style.color = 'white';
+        input.style.border = 'none';
+        input.style.cursor = 'pointer';
+        input.addEventListener('change', handleExcelSelect);
+        container.appendChild(input);
+        document.body.appendChild(container);
+    }
+
+    // 处理Excel文件选择
+    function handleExcelSelect(event) {
+        var file = event.target.files[0];
+        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var data = e.target.result;
+                var workbook = XLSX.read(data, { type: 'binary' });
+                var sheet = workbook.Sheets[workbook.SheetNames[0]]; // 默认取第一个工作表
+
+                // 将工作表转换为二维数组，raw: true 确保读取原始数据而不进行格式化
+                var json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+
+                // 打印原始数据以查看第一行
+                console.log('读取到的数据：', json);
+
+                // 获取表头
+                var header = json[0];
+                console.log('表头:', header);
+
+                // 查找"姓名"列的索引，去除每个列名的前后空格
+                var nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
+
+                if (nameColumnIndex === -1) {
+                    alert('未找到“姓名”列，请确保Excel中有“姓名”列');
+                    console.error('未找到姓名列');
+                    return;
+                }
+
+                // 提取姓名列数据，并移除姓名前的数字
+                names = json.slice(1).map(row => {
+                    let name = row[nameColumnIndex];
+                    if (name) {
+                        // 使用正则表达式移除姓名前的数字
+                        name = name.replace(/^\d+/, '').trim();
+                    }
+                    return name;
+                }).filter(name => name); // 过滤掉空值
+
+                console.log('已加载姓名：', names);
+                alert('Excel 文件已成功加载，姓名已提取！');
+            };
+
+            reader.onerror = function(ex) {
+                console.log(ex);
+            };
+
+            reader.readAsBinaryString(file);
+        } else {
+            alert('请上传有效的 Excel 文件');
+        }
     }
     
     // 添加跳过按钮
@@ -78,8 +172,8 @@
     }
 
     // 百度云OCR配置
-    const BAIDU_API_KEY = '填入你的API KEY';
-    const BAIDU_SECRET_KEY = '填入你的SECRET KEY';
+    const BAIDU_API_KEY = '4rHGTojlMzTYGov3tBHugdI6';
+    const BAIDU_SECRET_KEY = 'g4dhvSh3KHXfDoljUPRFceVczdVrGued';
     let accessToken = '';
 
     // 获取百度云access_token
@@ -125,7 +219,7 @@
     }
 
     // 处理图片选择
-    async function handleFileSelect(event) {
+    async function handleImageSelect(event) {
         const file = event.target.files[0];
         if (!file || !file.type.startsWith('image/')) {
             alert('请上传有效的图片文件');
@@ -382,7 +476,8 @@
     }
 
     // 创建按钮
-    createFileInput();
+    createImageInput();
+    createExcelInput();
     createSkipButton();
 
     // 定义菜单命令：开始
