@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.1.1
+// @version      0.1.2
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -263,9 +263,108 @@
                                     })
                                     .filter(name => name !== null); // 过滤掉不符合条件的项
 
-                                console.log('从图片中识别出的姓名：', names);
-                                alert('图片已成功识别，姓名已提取！');
-                                resolve();
+                                // 创建选择界面
+                                const modal = document.createElement('div');
+                                modal.style.position = 'fixed';
+                                modal.style.top = '0';
+                                modal.style.left = '0';
+                                modal.style.width = '100%';
+                                modal.style.height = '100%';
+                                modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                                modal.style.zIndex = 10000;
+                                
+                                const content = document.createElement('div');
+                                content.style.position = 'absolute';
+                                content.style.top = '50%';
+                                content.style.left = '50%';
+                                content.style.transform = 'translate(-50%, -50%)';
+                                content.style.backgroundColor = 'white';
+                                content.style.padding = '20px';
+                                content.style.borderRadius = '5px';
+                                content.style.width = '400px';
+                                
+                                const title = document.createElement('h3');
+                                title.textContent = '请选择要添加的姓名';
+                                title.style.marginBottom = '15px';
+                                content.appendChild(title);
+                                
+                                const list = document.createElement('div');
+                                list.style.maxHeight = '300px';
+                                list.style.overflowY = 'auto';
+                                list.style.marginBottom = '15px';
+                                
+                                names.forEach((name, index) => {
+                                    const item = document.createElement('div');
+                                    item.style.display = 'flex';
+                                    item.style.alignItems = 'center';
+                                    item.style.marginBottom = '10px';
+                                    
+                                    const checkbox = document.createElement('input');
+                                    checkbox.type = 'checkbox';
+                                    checkbox.checked = true;
+                                    checkbox.style.marginRight = '10px';
+                                    
+                                    const input = document.createElement('input');
+                                    input.type = 'text';
+                                    input.value = name;
+                                    input.style.flex = '1';
+                                    input.style.padding = '5px';
+                                    
+                                    item.appendChild(checkbox);
+                                    item.appendChild(input);
+                                    list.appendChild(item);
+                                });
+                                
+                                content.appendChild(list);
+                                
+                                const buttonContainer = document.createElement('div');
+                                buttonContainer.style.display = 'flex';
+                                buttonContainer.style.justifyContent = 'flex-end';
+                                
+                                const confirmButton = document.createElement('button');
+                                confirmButton.textContent = '确认';
+                                confirmButton.style.padding = '8px 16px';
+                                confirmButton.style.backgroundColor = '#4CAF50';
+                                confirmButton.style.color = 'white';
+                                confirmButton.style.border = 'none';
+                                confirmButton.style.borderRadius = '4px';
+                                confirmButton.style.cursor = 'pointer';
+                                confirmButton.onclick = () => {
+                                    const selectedNames = [];
+                                    list.querySelectorAll('div').forEach(item => {
+                                        const checkbox = item.querySelector('input[type="checkbox"]');
+                                        const input = item.querySelector('input[type="text"]');
+                                        if (checkbox.checked) {
+                                            selectedNames.push(input.value.trim());
+                                        }
+                                    });
+                                    names = selectedNames.filter(name => name.length > 0);
+                                    document.body.removeChild(modal);
+                                    console.log('用户选择的姓名：', names);
+                                    alert('姓名选择完成！');
+                                    resolve();
+                                };
+                                
+                                const cancelButton = document.createElement('button');
+                                cancelButton.textContent = '取消';
+                                cancelButton.style.padding = '8px 16px';
+                                cancelButton.style.marginRight = '10px';
+                                cancelButton.style.backgroundColor = '#f44336';
+                                cancelButton.style.color = 'white';
+                                cancelButton.style.border = 'none';
+                                cancelButton.style.borderRadius = '4px';
+                                cancelButton.style.cursor = 'pointer';
+                                cancelButton.onclick = () => {
+                                    document.body.removeChild(modal);
+                                    resolve();
+                                };
+                                
+                                buttonContainer.appendChild(cancelButton);
+                                buttonContainer.appendChild(confirmButton);
+                                content.appendChild(buttonContainer);
+                                
+                                modal.appendChild(content);
+                                document.body.appendChild(modal);
                             } else {
                                 throw new Error('OCR识别失败');
                             }
