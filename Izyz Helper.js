@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.1.2
+// @version      0.1.3
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -111,12 +111,23 @@
                 // 打印原始数据以查看第一行
                 console.log('读取到的数据：', json);
 
-                // 获取表头
+                // 在整个表格中搜索"姓名"列
+                var nameColumnIndex = -1;
+                
+                // 首先检查表头
                 var header = json[0];
-                console.log('表头:', header);
-
-                // 查找"姓名"列的索引，去除每个列名的前后空格
-                var nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
+                nameColumnIndex = header.findIndex(col => col.trim() === "姓名");
+                
+                // 如果表头中没有找到，遍历所有行查找
+                if (nameColumnIndex === -1) {
+                    for (let i = 0; i < json.length; i++) {
+                        nameColumnIndex = json[i].findIndex(col => col.trim() === "姓名");
+                        if (nameColumnIndex !== -1) {
+                            console.log('在第', i + 1, '行找到"姓名"列');
+                            break;
+                        }
+                    }
+                }
 
                 if (nameColumnIndex === -1) {
                     alert('未找到“姓名”列，请确保Excel中有“姓名”列');
@@ -124,7 +135,7 @@
                     return;
                 }
 
-                // 提取姓名列数据，并移除姓名前的数字
+                // 提取姓名列数据，并移除姓名前的数字，跳过表头
                 names = json.slice(1).map(row => {
                     let name = row[nameColumnIndex];
                     if (name) {
@@ -132,7 +143,7 @@
                         name = name.replace(/^\d+/, '').trim();
                     }
                     return name;
-                }).filter(name => name); // 过滤掉空值
+                }).filter(name => name && name !== "姓名"); // 过滤掉空值和"姓名"字符串
 
                 console.log('已加载姓名：', names);
                 alert('Excel 文件已成功加载，姓名已提取！');
@@ -388,7 +399,7 @@
     function createProgressBar() {
         var progressContainer = document.createElement('div');
         progressContainer.style.position = 'fixed';
-        progressContainer.style.bottom = '90px';
+        progressContainer.style.bottom = '170px';  // 下移80px
         progressContainer.style.left = '10px';
         progressContainer.style.zIndex = 9999;
         progressContainer.style.width = '300px';
@@ -414,7 +425,7 @@
     
         var currentVolunteerText = document.createElement('span');
         currentVolunteerText.style.position = 'fixed';
-        currentVolunteerText.style.bottom = '130px';
+        currentVolunteerText.style.bottom = '210px';  // 下移80px
         currentVolunteerText.style.left = '10px';
         currentVolunteerText.style.zIndex = 9999;
         currentVolunteerText.style.fontSize = '14px';
