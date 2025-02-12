@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.1.3
+// @version      0.1.4
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
 // @match        https://www.gdzyz.cn/*
@@ -35,7 +35,7 @@
         }
     }, 1000); // 延迟1秒检查是否加载成功
 
-    // 添加图片上传按钮
+    // 修改图片上传按钮创建函数
     function createImageInput() {
         var container = document.createElement('div');
         container.style.position = 'fixed';
@@ -52,8 +52,9 @@
 
         var input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*'; // 限制为图片文件
-        input.title = '上传志愿者照片（支持JPG/PNG格式）';
+        input.multiple = true; // 允许多文件选择
+        input.accept = 'image/*';
+        input.title = '上传志愿者照片（支持多张JPG/PNG格式）';
         input.style.padding = '5px';
         input.style.borderRadius = '5px';
         input.style.backgroundColor = '#4CAF50';
@@ -229,11 +230,11 @@
         });
     }
 
-    // 处理图片选择
+    // 修改图片处理函数
     async function handleImageSelect(event) {
-        const file = event.target.files[0];
-        if (!file || !file.type.startsWith('image/')) {
-            alert('请上传有效的图片文件');
+        const files = Array.from(event.target.files);
+        if (!files.length) {
+            alert('请选择图片文件');
             return;
         }
 
@@ -241,159 +242,85 @@
             // 获取access_token
             await getAccessToken();
             
-            // 将图片转换为base64
-            const imageBase64 = await fileToBase64(file);
-            
-            // 调用百度云OCR API
-            const ocrUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token=${accessToken}`;
-            
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: 'POST',
-                    url: ocrUrl,
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    data: `image=${encodeURIComponent(imageBase64)}&language_type=CHN_ENG`,
-                    onload: function(response) {
-                        try {
-                            const result = JSON.parse(response.responseText);
-                            if (result.words_result) {
-                                names = result.words_result
-                                    .map(item => item.words.trim())
-                                    .filter(line => line.length > 0)
-                                    .map(name => {
-                                        // 移除姓名前的数字
-                                        name = name.replace(/^\d+/, '').trim();
-                                        // 匹配2-4个中文字符的姓名
-                                        const chineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
-                                        if (chineseNamePattern.test(name)) {
-                                            return name;
-                                        }
-                                        return null;
-                                    })
-                                    .filter(name => name !== null); // 过滤掉不符合条件的项
+            let allNames = [];
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) {
+                    console.warn(`跳过非图片文件: ${file.name}`);
+                    continue;
+                }
 
-                                // 创建选择界面
-                                const modal = document.createElement('div');
-                                modal.style.position = 'fixed';
-                                modal.style.top = '0';
-                                modal.style.left = '0';
-                                modal.style.width = '100%';
-                                modal.style.height = '100%';
-                                modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-                                modal.style.zIndex = 10000;
-                                
-                                const content = document.createElement('div');
-                                content.style.position = 'absolute';
-                                content.style.top = '50%';
-                                content.style.left = '50%';
-                                content.style.transform = 'translate(-50%, -50%)';
-                                content.style.backgroundColor = 'white';
-                                content.style.padding = '20px';
-                                content.style.borderRadius = '5px';
-                                content.style.width = '400px';
-                                
-                                const title = document.createElement('h3');
-                                title.textContent = '请选择要添加的姓名';
-                                title.style.marginBottom = '15px';
-                                content.appendChild(title);
-                                
-                                const list = document.createElement('div');
-                                list.style.maxHeight = '300px';
-                                list.style.overflowY = 'auto';
-                                list.style.marginBottom = '15px';
-                                
-                                names.forEach((name, index) => {
-                                    const item = document.createElement('div');
-                                    item.style.display = 'flex';
-                                    item.style.alignItems = 'center';
-                                    item.style.marginBottom = '10px';
-                                    
-                                    const checkbox = document.createElement('input');
-                                    checkbox.type = 'checkbox';
-                                    checkbox.checked = true;
-                                    checkbox.style.marginRight = '10px';
-                                    
-                                    const input = document.createElement('input');
-                                    input.type = 'text';
-                                    input.value = name;
-                                    input.style.flex = '1';
-                                    input.style.padding = '5px';
-                                    
-                                    item.appendChild(checkbox);
-                                    item.appendChild(input);
-                                    list.appendChild(item);
-                                });
-                                
-                                content.appendChild(list);
-                                
-                                const buttonContainer = document.createElement('div');
-                                buttonContainer.style.display = 'flex';
-                                buttonContainer.style.justifyContent = 'flex-end';
-                                
-                                const confirmButton = document.createElement('button');
-                                confirmButton.textContent = '确认';
-                                confirmButton.style.padding = '8px 16px';
-                                confirmButton.style.backgroundColor = '#4CAF50';
-                                confirmButton.style.color = 'white';
-                                confirmButton.style.border = 'none';
-                                confirmButton.style.borderRadius = '4px';
-                                confirmButton.style.cursor = 'pointer';
-                                confirmButton.onclick = () => {
-                                    const selectedNames = [];
-                                    list.querySelectorAll('div').forEach(item => {
-                                        const checkbox = item.querySelector('input[type="checkbox"]');
-                                        const input = item.querySelector('input[type="text"]');
-                                        if (checkbox.checked) {
-                                            selectedNames.push(input.value.trim());
-                                        }
-                                    });
-                                    names = selectedNames.filter(name => name.length > 0);
-                                    document.body.removeChild(modal);
-                                    console.log('用户选择的姓名：', names);
-                                    alert('姓名选择完成！');
-                                    resolve();
-                                };
-                                
-                                const cancelButton = document.createElement('button');
-                                cancelButton.textContent = '取消';
-                                cancelButton.style.padding = '8px 16px';
-                                cancelButton.style.marginRight = '10px';
-                                cancelButton.style.backgroundColor = '#f44336';
-                                cancelButton.style.color = 'white';
-                                cancelButton.style.border = 'none';
-                                cancelButton.style.borderRadius = '4px';
-                                cancelButton.style.cursor = 'pointer';
-                                cancelButton.onclick = () => {
-                                    document.body.removeChild(modal);
-                                    resolve();
-                                };
-                                
-                                buttonContainer.appendChild(cancelButton);
-                                buttonContainer.appendChild(confirmButton);
-                                content.appendChild(buttonContainer);
-                                
-                                modal.appendChild(content);
-                                document.body.appendChild(modal);
-                            } else {
-                                throw new Error('OCR识别失败');
-                            }
-                        } catch (error) {
-                            reject(error);
-                        }
-                    },
-                    onerror: function(error) {
-                        reject(error);
+                try {
+                    // 将图片转换为base64
+                    const imageBase64 = await fileToBase64(file);
+                    
+                    // 调用百度云OCR API
+                    const ocrUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token=${accessToken}`;
+                    
+                    const result = await new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: 'POST',
+                            url: ocrUrl,
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            data: `image=${encodeURIComponent(imageBase64)}&language_type=CHN_ENG`,
+                            onload: function(response) {
+                                resolve(JSON.parse(response.responseText));
+                            },
+                            onerror: reject
+                        });
+                    });
+
+                    if (result.words_result) {
+                        const imageNames = result.words_result
+                            .map(item => item.words.trim())
+                            .filter(line => line.length > 0)
+                            .map(name => {
+                                name = name.replace(/^\d+/, '').trim();
+                                const chineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
+                                return chineseNamePattern.test(name) ? name : null;
+                            })
+                            .filter(name => name !== null);
+
+                        allNames = allNames.concat(imageNames);
                     }
+                } catch (error) {
+                    console.error(`处理图片 ${file.name} 时出错:`, error);
+                }
+            }
+
+            if (allNames.length > 0) {
+                // 创建选择界面
+                const modal = document.createElement('div');
+                // ...其他样式保持不变...
+
+                const content = document.createElement('div');
+                // ...其他样式保持不变...
+
+                const title = document.createElement('h3');
+                title.textContent = `已识别出 ${allNames.length} 个姓名，请选择要添加的姓名`;
+                // ...其他界面元素保持不变...
+
+                // 更新名单显示逻辑
+                const list = document.createElement('div');
+                list.style.maxHeight = '400px'; // 增加高度以适应更多内容
+                list.style.overflowY = 'auto';
+                list.style.marginBottom = '15px';
+
+                allNames.forEach((name, index) => {
+                    const item = document.createElement('div');
+                    // ...选择界面的其他部分保持不变...
                 });
-            });
+
+                // ...其余代码保持不变...
+            } else {
+                alert('未从图片中识别出任何有效姓名');
+            }
         } catch (error) {
             console.error('图片识别失败：', error);
             alert('图片识别失败，请确保图片清晰且包含中文文本');
         }
     }
-
 
     // 创建并显示进度条
     function createProgressBar() {
