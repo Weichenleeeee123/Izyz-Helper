@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Izyz-Helper
 // @namespace    https://greasyfork.org/users/1417526
-// @version      0.1.4
+// @version      0.1.5
 // @description  Help you to use izyz easier!
 // @author       Weichenleeeee
-// @match        https://www.gdzyz.cn/*
+// @match        https://www.gdzyz.cn/* 
+// @match        https://www.izyz.org/* 
+// @match        https://zh.izyz.org/* 
+// @match        https://iwww.izyz.org/*
 // @icon         https://www.gdzyz.cn/assets/weblogo.1b6eba63.svg
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
